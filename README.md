@@ -1,1 +1,1 @@
-# ForgettingNN
+# Forgetting Neural Network
