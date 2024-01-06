@@ -15,13 +15,25 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                          shuffle=False, num_workers=2)
 activation = {}
 sorted_node = {}
+average = {}
+
+def get_index(df_avg):
+    df_avg = df_avg.values.tolist()
+    df_avg.sort()
+
+
 def sort_nodes(activation, name):
     print('Name: ',name)
-    sort_index = np.argsort(activation[name] )
-    sorted_node[name] = torch.mean(sort_index.float(), axis=0)
+    average[name] = torch.mean(activation[name], axis=0)
+
+
+
+    #sort_index = np.argsort(average[name])
+    #sorted_node[name] = sort_index
     l = pd.DataFrame(activation[name])
     l = l.transpose()
-    m = pd.DataFrame(sorted_node[name])
+    m = pd.DataFrame(average[name])
+    ord_index = get_index(m)
     n = pd.concat([l,m], axis=1)
     n.to_csv(f'{name}_weights.csv')
 
