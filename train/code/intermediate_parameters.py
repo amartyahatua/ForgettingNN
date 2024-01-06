@@ -67,7 +67,7 @@ def get_index(df_avg):
     for ele in df_sort:
         index = df_avg_list.index(ele)
         out_index.append(index)
-    ord_index = pd.DataFrame(out_index, columns=['Index'])
+    ord_index = pd.DataFrame(out_index, columns=['Order'])
     return ord_index
 
 
