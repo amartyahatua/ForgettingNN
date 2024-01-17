@@ -25,8 +25,8 @@ class Net(nn.Module):
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
-        x= self.conv1(x)
-        x = self.activation_1 (x)
+        x = self.conv1(x)
+        x = self.activation_1(x)
         x = self.pool(x)
 
         x = self.conv2(x)
@@ -43,10 +43,11 @@ class Net(nn.Module):
         return x
 
 
-transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 batch_size = 4
+
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
@@ -54,6 +55,8 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
 activation = {}
 sorted_node = {}
 average = {}
+ord_index_fc = {}
+
 
 def get_index(df_avg):
     df_avg_list = []
@@ -72,33 +75,31 @@ def get_index(df_avg):
 
 
 def sort_nodes(activation, name):
-    print('Name: ',name)
+    # print('Name: ', name)
     average[name] = torch.mean(activation[name], axis=0)
-
-
-
-    #sort_index = np.argsort(average[name])
-    #sorted_node[name] = sort_index
     l = pd.DataFrame(activation[name])
     l = l.transpose()
     m = pd.DataFrame(average[name])
     ord_index = get_index(m)
-    n = pd.concat([l,m, ord_index], axis=1)
+    n = pd.concat([l, m, ord_index], axis=1)
     n.to_csv(f'{name}_weights.csv')
+    return ord_index
+
 
 def get_activation(name):
     def hook(model, input, output):
         activation[name] = output.detach()
-        if(activation[name].dim() == 2):
-            print('2D array got in: ', name)
-            sort_nodes(activation, name)
+        if activation[name].dim() == 2:
+            # print('2D array got in: ', name)
+            ord_index_fc[name] = sort_nodes(activation, name)
     return hook
+
 
 def main():
     model = Net()
     model.load_state_dict(torch.load('../../model/cifar_net.pth'))
     model.eval()
-    print(model)
+    # print(model)
 
     dataiter = iter(testloader)
     images, labels = next(dataiter)
@@ -110,9 +111,18 @@ def main():
     model.activation_4.register_forward_hook(get_activation('activation_4'))
 
     outputs = model(images)
-    print(activation.keys())
-    for key in activation.keys():
-        print(f'{key} shape: {activation[key].shape}')
+    #print(type(ord_index_fc))
+    df = pd.DataFrame()
+
+    for key, val in ord_index_fc.items():
+        df_temp = pd.DataFrame(val, columns=[key])
+        df_temp = df_temp.reset_index()
+        print(df_temp)
+        df = pd.concat([df, df_temp])
+        print(df.shape)
+
+    # l = pd.DataFrame(ord_index_fc.items(), columns=ord_index_fc.keys())
+    # l.to_csv('Order_out.csv', index=False)
 
 if __name__ == '__main__':
     main()

@@ -57,7 +57,6 @@ def run_nn():
         for i in range(0, len(X), batch_size):
             Xbatch = X[i:i + batch_size]
             y_pred = model(Xbatch)
-            # print(y_pred.shape)
             ybatch = y[i:i + batch_size]
             loss = loss_fn(y_pred, ybatch)
             optimizer.zero_grad()
