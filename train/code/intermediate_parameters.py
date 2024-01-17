@@ -111,18 +111,14 @@ def main():
     model.activation_4.register_forward_hook(get_activation('activation_4'))
 
     outputs = model(images)
-    #print(type(ord_index_fc))
     df = pd.DataFrame()
 
-    for key, val in ord_index_fc.items():
-        df_temp = pd.DataFrame(val, columns=[key])
-        df_temp = df_temp.reset_index()
-        print(df_temp)
-        df = pd.concat([df, df_temp])
+    for key in ord_index_fc.keys():
+        df_temp = ord_index_fc[key]
+        df_temp.rename(columns={'Order': key}, inplace=True)
+        df = pd.concat([df, df_temp], axis=1)
         print(df.shape)
-
-    # l = pd.DataFrame(ord_index_fc.items(), columns=ord_index_fc.keys())
-    # l.to_csv('Order_out.csv', index=False)
+    df.to_csv('Order_out.csv')
 
 if __name__ == '__main__':
     main()
