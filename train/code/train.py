@@ -30,6 +30,20 @@ classes = ('plane', 'car', 'bird', 'cat',
 
 
 
+class MyLayer(nn.Module):
+    """
+    This is a user defined neural network layer
+    param: int input size
+    param: tensor Input * random weight
+    """
+    def __init__(self, in_size):
+        super().__init__()
+        self.weight = None
+        self.size = in_size
+
+    def forward(self, x, n_epochs, rank):
+        self.weight = np.exp(-n_epochs / rank)
+        return x * self.weight
 
 
 class Net(nn.Module):
@@ -38,16 +52,31 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
+        self.activation_1 = nn.ReLU()
+        self.activation_2 = nn.ReLU()
+        self.activation_3 = nn.ReLU()
+        self.activation_4 = nn.ReLU()
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
+        self.myLayer = MyLayer(120)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x= self.conv1(x)
+        x = self.activation_1 (x)
+        x = self.pool(x)
+
+        x = self.conv2(x)
+        x = self.activation_2(x)
+        x = self.pool(x)
+
+        x = torch.flatten(x, 1)  # flatten all dimensions except batch
+        x = self.fc1(x)
+        x = self.activation_3(x)
+        x = self.myLayer(x, self.epoch, self.rank)
+
+        x = self.fc2(x)
+        x = self.activation_4(x)
         x = self.fc3(x)
         return x
 
@@ -59,7 +88,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 def train():
     for epoch in range(2):  # loop over the dataset multiple times
-
+        print("Epoch", epoch)
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
@@ -69,6 +98,8 @@ def train():
             optimizer.zero_grad()
 
             # forward + backward + optimize
+            net.rank = 1
+            net.epoch = epoch+1
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()

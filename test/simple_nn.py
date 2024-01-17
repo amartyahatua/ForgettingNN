@@ -10,15 +10,15 @@ class MyLayer(nn.Module):
     param: int input size
     param: tensor Input * random weight
     """
-    def __init__(self, in_size):
+    def __init__(self, in_size, n_epochs, rank):
         super().__init__()
         self.weight = None
         self.size = in_size
+        self.epoch = n_epochs
+        self.rank = rank
 
     def forward(self, x):
-        weight = torch.Tensor(self.size)
-        self.weight = nn.Parameter(weight)
-        torch.nn.init.normal(self.weight, mean=0.0, std=1.0)
+        self.weight = np.exp(-self.epoch / self.r)
         return x * self.weight
 
 

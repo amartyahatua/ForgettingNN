@@ -92,6 +92,7 @@ def get_activation(name):
         if activation[name].dim() == 2:
             # print('2D array got in: ', name)
             ord_index_fc[name] = sort_nodes(activation, name)
+
     return hook
 
 
@@ -119,6 +120,7 @@ def main():
         df = pd.concat([df, df_temp], axis=1)
         print(df.shape)
     df.to_csv('Order_out.csv')
+
 
 if __name__ == '__main__':
     main()
