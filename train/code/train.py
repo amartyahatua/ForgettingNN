@@ -41,7 +41,7 @@ class MyLayer(nn.Module):
         self.size = in_size
 
     def forward(self, x, n_epochs, layer):
-        df = pd.read_csv('Order_out.csv')
+        df = pd.read_csv('Order_out_old.csv')
         rank = torch.tensor(df[layer].values[0:x.shape[1]])
         rank = rank.float()
         self.weight = np.exp(-n_epochs / rank)

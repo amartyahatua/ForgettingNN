@@ -59,20 +59,16 @@ ord_index_fc = {}
 
 
 def get_index(df_avg):
-    df_avg_list = []
-    for i in df_avg[0]:
-        df_avg_list.append(i)
 
-    df_sort = df_avg_list
-    df_sort = sorted(df_sort, key=float, reverse=True)
-    out_index = []
+    L = []
+    for val in df_avg.values.tolist():
+        L.extend(val)
 
-    for ele in df_sort:
-        index = df_avg_list.index(ele)
-        out_index.append(index)
-    ord_index = pd.DataFrame(out_index, columns=['Order'])
+    x = tuple(k[1] for k in sorted((x[1], j) for j, x in enumerate(
+        sorted((x, i) for i, x in enumerate(L)))))
+    ord_index = pd.DataFrame(x)
+    ord_index = max(x)-ord_index
     return ord_index
-
 
 def sort_nodes(activation, name):
     # print('Name: ', name)
