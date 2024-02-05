@@ -51,10 +51,11 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)  # flatten all dimensions except batch
         x = self.fc1(x)
         x = self.activation_3(x)
-        #x = MyLayer(x, self.epoch, self.rank)
+        x = MyLayer(x, self.epoch, self.rank)
 
         x = self.fc2(x)
         x = self.activation_4(x)
+        x = MyLayer(x, self.epoch, self.rank)
         x = self.fc3(x)
         return x
 

@@ -1,5 +1,6 @@
 import torch.nn as nn
-
+import torch
+import numpy as np
 
 class ResNet(nn.Module):
     def __init__(self):
@@ -54,6 +55,7 @@ class ResNet(nn.Module):
             nn.MaxPool2d(4),
             nn.Flatten(),
             nn.Linear(512, 10)
+
         )
 
     def forward(self, x):
@@ -64,5 +66,6 @@ class ResNet(nn.Module):
         x = self.conv4(x)
         x = self.res2(x) + x
         x = self.classifier(x)
+        x = torch.tensor(np.exp(-x.detach().numpy()))
 
         return x
