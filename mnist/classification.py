@@ -9,17 +9,25 @@ from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+torch.autograd.set_detect_anomaly(True)
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
+        self.dropout1 = None
+        self.dropout2 = None
         self.conv1 = nn.Conv2d(1, 32, 3, 1)
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
+        if self.type == 'unlearning':
+            self.dropout1 = nn.Dropout(0.25-(0.01*self.turn)+(0.05*(self.epoch-1)))
+            self.dropout2 = nn.Dropout(0.50-(0.01*self.turn)+(0.05*(self.epoch-1)))
+        elif self.type == 'learning':
+            self.dropout1 = nn.Dropout(0.25-(0.01*self.turn))
+            self.dropout2 = nn.Dropout(0.50-(0.01*self.turn))
+
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
@@ -29,18 +37,27 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc1(x)
 
+        if self.type == 'unlearning':
+            rank = torch.tensor([i for i in range(x.shape[1])])
+            x = x*torch.exp(-(self.epoch/rank))
+
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
-        rank = torch.tensor([i*0.93 *self.epoch for i in range(x.shape[1])])
-        x = torch.exp((x*(self.epoch*rank)))
+
+        if self.type == 'unlearning':
+            rank = torch.tensor([i for i in range(x.shape[1])])
+            x = x*torch.exp(-(self.epoch/rank))
         output = F.log_softmax(x, dim=1)
         return output
 
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, type, turn):
     model.train()
+    model.type = type
     model.epoch = epoch
+    model.turn = turn
+
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -56,10 +73,12 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 break
 
 accuracy = []
+accuracy_num = []
 def test(model, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
+    print(f'Learning type: {type}; droupout 1: {model.dropout1};  droupout 2: {model.dropout2}')
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -74,7 +93,8 @@ def test(model, device, test_loader):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
-    accuracy.append(correct / len(test_loader.dataset)*100)
+    accuracy.append(correct / len(test_loader.dataset))
+    accuracy_num.append(correct)
 
 
 def main():
@@ -84,11 +104,11 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=6, metavar='N',
+    parser.add_argument('--epochs', type=int, default=2, metavar='N',
                         help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+    parser.add_argument('--lr', type=float, default=1.001, metavar='LR',
                         help='learning rate (default: 1.0)')
-    parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
+    parser.add_argument('--gamma', type=float, default=0.07, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
@@ -135,13 +155,23 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    #optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(model, device, test_loader)
-        scheduler.step()
+    for turn in range(5):
+        print(f'------------------------Turn = {turn}-----------------------------')
+        print(f'------------------------Learning-----------------------------')
+        for epoch in range(1, args.epochs + 1):
+            train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
+            test(model, device, test_loader)
+            scheduler.step()
+        print(f'------------------------Unlearning-----------------------------')
+        for epoch in range(1, args.epochs + 5):
+            train(args, model, device, train_loader, optimizer, epoch, 'unlearning',turn)
+            test(model, device, test_loader)
+            scheduler.step()
 
     if args.save_model:
         torch.save(model.state_dict(), "model/mnist_cnn.pt")
@@ -151,5 +181,7 @@ if __name__ == '__main__':
     main()
     print(accuracy)
     plt.plot(accuracy)
-    plt.show()
     plt.savefig('plots/unlearning_plot.png')
+
+    plt.plot(accuracy_num)
+    plt.savefig('plots/unlearning_number_plot.png')
