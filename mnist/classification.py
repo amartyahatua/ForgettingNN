@@ -22,8 +22,14 @@ class Net(nn.Module):
 
     def forward(self, x):
         if self.type == 'unlearning':
-            self.dropout1 = nn.Dropout(0.25-(0.01*self.turn)+(0.05*(self.epoch-1)))
-            self.dropout2 = nn.Dropout(0.50-(0.01*self.turn)+(0.05*(self.epoch-1)))
+            prev_drp = 0
+            try:
+                self.dropout1 = nn.Dropout(0.25-(0.072*self.turn)+(0.05*(self.epoch-1)))
+                self.dropout2 = nn.Dropout(0.50-(0.072*self.turn)+(0.05*(self.epoch-1)))
+                prev_drp = (0.25-(0.072*self.turn)+(0.05*(self.epoch-1)))
+            except:
+                self.dropout1 = nn.Dropout(prev_drp)
+                self.dropout2 = nn.Dropout(prev_drp)
         elif self.type == 'learning':
             self.dropout1 = nn.Dropout(0.25-(0.01*self.turn))
             self.dropout2 = nn.Dropout(0.50-(0.01*self.turn))
@@ -160,7 +166,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for turn in range(5):
+    for turn in range(10):
         print(f'------------------------Turn = {turn}-----------------------------')
         print(f'------------------------Learning-----------------------------')
         for epoch in range(1, args.epochs + 1):
