@@ -1,16 +1,15 @@
+import os
 import argparse
 import torch
-import numpy as np
 import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
-import os
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 torch.autograd.set_detect_anomaly(True)
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
