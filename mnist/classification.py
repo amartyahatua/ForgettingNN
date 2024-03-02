@@ -1,6 +1,7 @@
 import argparse
 import torch
 import numpy as np
+import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -19,6 +20,31 @@ class Net(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, 3, 1)
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
+
+    def get_index(self, df_avg):
+
+        L = []
+        for val in df_avg.values.tolist():
+            L.extend(val)
+
+        x = tuple(k[1] for k in sorted((x[1], j) for j, x in enumerate(
+            sorted((x, i) for i, x in enumerate(L)))))
+        #ord_index = pd.DataFrame(x)
+        ord_index = [max(x)-i  for i in list(x)]
+        return ord_index
+
+    def sort_nodes(self, activation):
+        # print('Name: ', name)
+        # name='test'
+        average = torch.mean(activation, axis=0)
+        # l = pd.DataFrame(activation.detach().numpy())
+        # l = l.transpose()
+        m = pd.DataFrame(average.detach().numpy())
+        ord_index = self.get_index(m)
+        # n = pd.concat([l, m, ord_index], axis=1)
+        # n.to_csv(f'{name}_weights.csv')
+        ord_index = torch.tensor(ord_index)
+        return ord_index
 
     def forward(self, x):
         if self.type == 'unlearning':
@@ -44,7 +70,10 @@ class Net(nn.Module):
         x = self.fc1(x)
 
         if self.type == 'unlearning':
-            rank = torch.tensor([i for i in range(x.shape[1])])
+            if self.rank == 0:
+                rank = torch.tensor([i for i in range(x.shape[1])])
+            else:
+                rank = self.sort_nodes(x)
             x = x*torch.exp(-(self.epoch/rank))
 
         x = F.relu(x)
@@ -52,7 +81,10 @@ class Net(nn.Module):
         x = self.fc2(x)
 
         if self.type == 'unlearning':
-            rank = torch.tensor([i for i in range(x.shape[1])])
+            if self.rank == 0:
+                rank = torch.tensor([i for i in range(x.shape[1])])
+            else:
+                rank = self.sort_nodes(x)
             x = x*torch.exp(-(self.epoch/rank))
         output = F.log_softmax(x, dim=1)
         return output
@@ -63,6 +95,7 @@ def train(args, model, device, train_loader, optimizer, epoch, type, turn):
     model.type = type
     model.epoch = epoch
     model.turn = turn
+    model.rank = 1
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -118,8 +151,8 @@ def main():
                         help='Learning rate step gamma (default: 0.7)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('--no-mps', action='store_true', default=False,
-                        help='disables macOS GPU training')
+    # parser.add_argument('--no-mps', action='store_true', default=False,
+    #                     help='disables macOS GPU training')
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='quickly check a single pass')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
@@ -130,13 +163,13 @@ def main():
                         help='For Saving the current Model')
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
-    use_mps = not args.no_mps and torch.backends.mps.is_available()
+    # use_mps = not args.no_mps and torch.backends.mps.is_available()
     torch.manual_seed(args.seed)
 
     if use_cuda:
         device = torch.device("cuda")
-    elif use_mps:
-        device = torch.device("mps")
+    # elif use_mps:
+    #     device = torch.device("mps")
     else:
         device = torch.device("cpu")
 
@@ -166,10 +199,10 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for turn in range(10):
+    for turn in range(5):
         print(f'------------------------Turn = {turn}-----------------------------')
         print(f'------------------------Learning-----------------------------')
-        for epoch in range(1, args.epochs + 1):
+        for epoch in range(1, args.epochs + 2):
             train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
             test(model, device, test_loader)
             scheduler.step()
@@ -187,7 +220,7 @@ if __name__ == '__main__':
     main()
     print(accuracy)
     plt.plot(accuracy)
-    plt.savefig('plots/unlearning_plot.png')
+    plt.savefig('plots/unlearning_plot_rank_1.png')
 
     plt.plot(accuracy_num)
     plt.savefig('plots/unlearning_number_plot.png')
