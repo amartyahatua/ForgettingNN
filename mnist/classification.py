@@ -29,20 +29,13 @@ class Net(nn.Module):
 
         x = tuple(k[1] for k in sorted((x[1], j) for j, x in enumerate(
             sorted((x, i) for i, x in enumerate(L)))))
-        #ord_index = pd.DataFrame(x)
         ord_index = [max(x)-i  for i in list(x)]
         return ord_index
 
     def sort_nodes(self, activation):
-        # print('Name: ', name)
-        # name='test'
         average = torch.mean(activation, axis=0)
-        # l = pd.DataFrame(activation.detach().numpy())
-        # l = l.transpose()
-        m = pd.DataFrame(average.detach().numpy())
-        ord_index = self.get_index(m)
-        # n = pd.concat([l, m, ord_index], axis=1)
-        # n.to_csv(f'{name}_weights.csv')
+        new_average = pd.DataFrame(average.detach().numpy())
+        ord_index = self.get_index(new_average)
         ord_index = torch.tensor(ord_index)
         return ord_index
 
