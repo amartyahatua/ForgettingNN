@@ -7,8 +7,10 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
 from mnist.rank import Rank
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 torch.autograd.set_detect_anomaly(True)
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -30,20 +32,19 @@ class Net(nn.Module):
             rank = rnk_cls.get_ranks(x)
         return rank
 
-
     def forward(self, x):
         if self.type == 'unlearning':
             prev_drp = 0
             try:
-                self.dropout1 = nn.Dropout(0.25-(0.072*self.turn)+(0.05*(self.epoch-1)))
-                self.dropout2 = nn.Dropout(0.50-(0.072*self.turn)+(0.05*(self.epoch-1)))
-                prev_drp = (0.25-(0.072*self.turn)+(0.05*(self.epoch-1)))
+                self.dropout1 = nn.Dropout(0.25 - (0.072 * self.turn) + (0.05 * (self.epoch - 1)))
+                self.dropout2 = nn.Dropout(0.50 - (0.072 * self.turn) + (0.05 * (self.epoch - 1)))
+                prev_drp = (0.25 - (0.072 * self.turn) + (0.05 * (self.epoch - 1)))
             except:
                 self.dropout1 = nn.Dropout(prev_drp)
                 self.dropout2 = nn.Dropout(prev_drp)
         elif self.type == 'learning':
-            self.dropout1 = nn.Dropout(0.25-(0.01*self.turn))
-            self.dropout2 = nn.Dropout(0.50-(0.01*self.turn))
+            self.dropout1 = nn.Dropout(0.25 - (0.01 * self.turn))
+            self.dropout2 = nn.Dropout(0.50 - (0.01 * self.turn))
 
         x = self.conv1(x)
         x = F.relu(x)
@@ -56,7 +57,7 @@ class Net(nn.Module):
 
         if self.last_layer_forget == 0 and self.type == 'unlearning':
             rank = self.select_rank(self, x, self.rank)
-            x = x*torch.exp(-(self.forget_strength/rank))
+            x = x * torch.exp(-(self.forget_strength / rank))
 
         x = F.relu(x)
         x = self.dropout2(x)
@@ -88,12 +89,15 @@ def train(args, model, device, train_loader, optimizer, epoch, type, turn):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+                       100. * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
                 break
 
+
 accuracy = []
 accuracy_num = []
+
+
 def test(model, device, test_loader):
     model.eval()
     test_loss = 0
@@ -163,33 +167,31 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    transform=transforms.Compose([
+    transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
-        ])
+    ])
     dataset1 = datasets.MNIST('../data', train=True, download=True,
-                       transform=transform)
+                              transform=transform)
     dataset2 = datasets.MNIST('../data', train=False,
-                       transform=transform)
-    train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
+                              transform=transform)
+    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     model = Net().to(device)
-    #optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-    # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for turn in range(5):
         print(f'------------------------Turn = {turn}-----------------------------')
         print(f'------------------------Learning-----------------------------')
-        # for epoch in range(1, 2):
-        #     train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
-        #     test(model, device, test_loader)
-        #     scheduler.step()
+        for epoch in range(1, args.epochs + 5):
+            train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
+            test(model, device, test_loader)
+            scheduler.step()
         print(f'------------------------Unlearning-----------------------------')
         for epoch in range(1, args.epochs + 5):
-            train(args, model, device, train_loader, optimizer, epoch, 'unlearning',turn)
+            train(args, model, device, train_loader, optimizer, epoch, 'unlearning', turn)
             test(model, device, test_loader)
             scheduler.step()
 
