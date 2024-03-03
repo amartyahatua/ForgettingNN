@@ -1,12 +1,12 @@
 import os
 import argparse
 import torch
-import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
+from mnist.rank import Rank
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 torch.autograd.set_detect_anomaly(True)
 
@@ -20,23 +20,16 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
 
-    def get_index(self, df_avg):
+    def select_rank(self, x, rank_type):
+        rnk_cls = Rank()
+        if self.rank == rank_type:
+            rank = rnk_cls.random(x)
+        elif self.rank == rank_type:
+            rank = rnk_cls.top_K(x, 10)
+        else:
+            rank = rnk_cls.get_ranks(x)
+        return rank
 
-        L = []
-        for val in df_avg.values.tolist():
-            L.extend(val)
-
-        x = tuple(k[1] for k in sorted((x[1], j) for j, x in enumerate(
-            sorted((x, i) for i, x in enumerate(L)))))
-        ord_index = [max(x)-i  for i in list(x)]
-        return ord_index
-
-    def sort_nodes(self, activation):
-        average = torch.mean(activation, axis=0)
-        new_average = pd.DataFrame(average.detach().numpy())
-        ord_index = self.get_index(new_average)
-        ord_index = torch.tensor(ord_index)
-        return ord_index
 
     def forward(self, x):
         if self.type == 'unlearning':
@@ -62,10 +55,7 @@ class Net(nn.Module):
         x = self.fc1(x)
 
         if self.type == 'unlearning':
-            if self.rank == 0:
-                rank = torch.tensor([i for i in range(x.shape[1])])
-            else:
-                rank = self.sort_nodes(x)
+            rank = self.select_rank(self, x, self.rank)
             x = x*torch.exp(-(self.epoch/rank))
 
         x = F.relu(x)
@@ -73,11 +63,9 @@ class Net(nn.Module):
         x = self.fc2(x)
 
         if self.type == 'unlearning':
-            if self.rank == 0:
-                rank = torch.tensor([i for i in range(x.shape[1])])
-            else:
-                rank = self.sort_nodes(x)
-            x = x*torch.exp(-(self.epoch/rank))
+            rank = self.select_rank(self, x, self.rank)
+            x = x * torch.exp(-(self.epoch / rank))
+
         output = F.log_softmax(x, dim=1)
         return output
 
@@ -87,7 +75,7 @@ def train(args, model, device, train_loader, optimizer, epoch, type, turn):
     model.type = type
     model.epoch = epoch
     model.turn = turn
-    model.rank = 1
+    model.rank = 0
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -194,10 +182,10 @@ def main():
     for turn in range(5):
         print(f'------------------------Turn = {turn}-----------------------------')
         print(f'------------------------Learning-----------------------------')
-        for epoch in range(1, args.epochs + 2):
-            train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
-            test(model, device, test_loader)
-            scheduler.step()
+        # for epoch in range(1, 2):
+        #     train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
+        #     test(model, device, test_loader)
+        #     scheduler.step()
         print(f'------------------------Unlearning-----------------------------')
         for epoch in range(1, args.epochs + 5):
             train(args, model, device, train_loader, optimizer, epoch, 'unlearning',turn)
