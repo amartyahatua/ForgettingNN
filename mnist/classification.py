@@ -54,9 +54,9 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc1(x)
 
-        if self.type == 'unlearning':
+        if self.last_layer_forget == 0 and self.type == 'unlearning':
             rank = self.select_rank(self, x, self.rank)
-            x = x*torch.exp(-(self.epoch/rank))
+            x = x*torch.exp(-(self.forget_strength/rank))
 
         x = F.relu(x)
         x = self.dropout2(x)
@@ -64,7 +64,7 @@ class Net(nn.Module):
 
         if self.type == 'unlearning':
             rank = self.select_rank(self, x, self.rank)
-            x = x * torch.exp(-(self.epoch / rank))
+            x = x * torch.exp(-(self.forget_strength / rank))
 
         output = F.log_softmax(x, dim=1)
         return output
@@ -73,9 +73,10 @@ class Net(nn.Module):
 def train(args, model, device, train_loader, optimizer, epoch, type, turn):
     model.train()
     model.type = type
-    model.epoch = epoch
+    model.forget_strength = epoch
     model.turn = turn
     model.rank = 0
+    model.last_layer_forget = 0
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
