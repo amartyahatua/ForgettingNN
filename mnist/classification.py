@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
+from mia_score import calculate_mia
 import random
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -149,7 +150,7 @@ def train(args, model, device, train_loader, optimizer, epoch, type, turn):
 
 accuracy = []
 accuracy_num = []
-
+mia_score_list = []
 
 def test(model, device, test_loader):
     model.eval()
@@ -226,10 +227,13 @@ def main():
     ])
     dataset1 = datasets.MNIST('../data', train=True, download=True,
                               transform=transform)
-    dataset2 = datasets.MNIST('../data', train=False,
+    dataset2, dataset3 = torch.utils.data.random_split(dataset1, [50000, 10000], generator=torch.Generator().manual_seed(42))
+
+    dataset4 = datasets.MNIST('../data', train=False,
                               transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
-    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+    forget_loader = torch.utils.data.DataLoader(dataset3, **train_kwargs)
+    test_loader = torch.utils.data.DataLoader(dataset4, **test_kwargs)
 
     model = Net().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -242,11 +246,13 @@ def main():
             train(args, model, device, train_loader, optimizer, epoch, 'learning', turn)
             test(model, device, test_loader)
             scheduler.step()
+            mia_score_list.append(calculate_mia(model, test_loader, forget_loader))
         print(f'------------------------Unlearning-----------------------------')
         for epoch in range(1, args.epochs + 5):
             train(args, model, device, train_loader, optimizer, epoch, 'unlearning', turn)
             test(model, device, test_loader)
             scheduler.step()
+            mia_score_list.append(calculate_mia(model, test_loader, forget_loader))
 
     if args.save_model:
         torch.save(model.state_dict(), "model/mnist_cnn.pt")
@@ -256,7 +262,9 @@ if __name__ == '__main__':
     main()
     print(accuracy)
     accuracy = pd.DataFrame(accuracy)
+    mia_score_df = pd.DataFrame(mia_score_list)
     accuracy.to_csv('Result_Rank_in_order_all_epoch_all_layer.csv', index=False)
+    mia_score_df.to_csv('MIA_Rank_in_order_all_epoch_all_layer.csv', index=False)
     plt.plot(accuracy)
     plt.savefig('plots/unlearning_plot_rank_in_order_all_epoch_all_layer.png')
 
