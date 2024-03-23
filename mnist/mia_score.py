@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch import nn
+from sklearn import svm
 from sklearn import linear_model, model_selection
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -41,7 +42,7 @@ def simple_mia(sample_loss, members, n_splits=10, random_state=0):
     if not np.all(unique_members == np.array([0, 1])):
         raise ValueError("members should only have 0 and 1s")
 
-    attack_model = linear_model.LogisticRegression()
+    attack_model = svm.SVC()
     cv = model_selection.StratifiedShuffleSplit(
         n_splits=n_splits, random_state=random_state
     )
@@ -57,4 +58,4 @@ def calculate_mia(model, test_loader, forget_loader):
     rt_samples_mia = np.concatenate((test_losses, forget_losses)).reshape((-1, 1))
     labels_mia = [0] * len(test_losses) + [1] * len(forget_losses)
     mia_score = simple_mia(rt_samples_mia, labels_mia)
-    return mia_score
+    return mia_score.mean()
