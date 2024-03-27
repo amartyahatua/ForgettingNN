@@ -8,6 +8,7 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from matplotlib import pyplot as plt
 from mia_score import calculate_mia
+from plots import create_polt
 import random
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -66,13 +67,13 @@ class Net(nn.Module):
 
         if self.type == 'unlearning':
             # With ordered numbers
-            rank = torch.tensor([i for i in range(x.shape[1])])
-            rank = rank.to(self.device)
-
-            # # With ordered nodes
-            # rank = node_order(x)
-            # rank = torch.tensor(rank)
+            # rank = torch.tensor([i for i in range(x.shape[1])])
             # rank = rank.to(self.device)
+
+            # With ordered nodes
+            rank = node_order(x)
+            rank = torch.tensor(rank)
+            rank = rank.to(self.device)
             #
             # # With top 30 nodes
             # rank = node_order(rank)
@@ -96,13 +97,13 @@ class Net(nn.Module):
 
         if self.type == 'unlearning':
             # With ordered numbers
-            rank = torch.tensor([i for i in range(x.shape[1])])
-            rank = rank.to(self.device)
-
-            # # With ordered nodes
-            # rank = node_order(x)
-            # rank = torch.tensor(rank)
+            # rank = torch.tensor([i for i in range(x.shape[1])])
             # rank = rank.to(self.device)
+
+            # With ordered nodes
+            rank = node_order(x)
+            rank = torch.tensor(rank)
+            rank = rank.to(self.device)
             #
             # # With top 30 nodes
             # rank = node_order(rank)
@@ -263,10 +264,6 @@ if __name__ == '__main__':
     print(accuracy)
     accuracy = pd.DataFrame(accuracy)
     mia_score_df = pd.DataFrame(mia_score_list)
-    accuracy.to_csv('Result_Rank_ordered_number_all_epoch_all_layer.csv', index=False)
-    mia_score_df.to_csv('MIA_Rank_ordered_number_all_epoch_all_layer.csv', index=False)
-    plt.plot(mia_score_df)
-    plt.savefig('plots/MIA_plot_rank_in_order_all_epoch_all_layer.png')
-
-    # plt.plot(accuracy_num)
-    # plt.savefig('plots/unlearning_rank_in_order_all_epoch_all_layer.png')
+    accuracy.to_csv('Result_Rank_ordered_nodes_all_epoch_all_layer.csv', index=False)
+    mia_score_df.to_csv('MIA_Rank_ordered_nodes_all_epoch_all_layer.csv', index=False)
+    create_polt(accuracy, mia_score_df, 'Rank_ordered_nodes_all_epoch_all_layer')
