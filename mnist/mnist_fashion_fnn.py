@@ -69,37 +69,37 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc1(x)
 
-        # if self.type == 'unlearning':
-        #     # With ordered numbers
-        #     # rank = torch.tensor([i for i in range(x.shape[1])])
-        #     # rank = rank.to(self.device)
-        #
-        #     # With ordered nodes
-        #     # rank = self.node_order(x)
-        #     # rank = torch.tensor(rank)
-        #     # rank = rank.to(self.device)
-        #
-        #     # With to 30 nodes
-        #     # rank = self.node_order(x)
-        #     # rank = [ind if 30 <= ind else 0 for ind in rank]
-        #     # rank = torch.tensor(rank)
-        #     # rank = rank.to(self.device)
-        #
-        #     # Random node
-        #     random_numbers = random.sample(range(0, x.shape[1] - 1), random.randint(0, x.shape[1] - 1))
-        #     rank = self.node_order(x)
-        #     for rn in random_numbers:
-        #         try:
-        #             rank[rn] = 1
-        #         except:
-        #             continue
-        #     rank = torch.tensor(rank)
-        #     rank = rank.to(self.device)
-        #     x = x * torch.exp(-(self.epoch / rank))
-        #
-        # x = F.relu(x)
-        # x = self.dropout2(x)
-        # x = self.fc2(x)
+        if self.type == 'unlearning':
+            # With ordered numbers
+            # rank = torch.tensor([i for i in range(x.shape[1])])
+            # rank = rank.to(self.device)
+
+            # With ordered nodes
+            # rank = self.node_order(x)
+            # rank = torch.tensor(rank)
+            # rank = rank.to(self.device)
+
+            # With to 30 nodes
+            # rank = self.node_order(x)
+            # rank = [ind if 30 <= ind else 0 for ind in rank]
+            # rank = torch.tensor(rank)
+            # rank = rank.to(self.device)
+
+            # Random node
+            random_numbers = random.sample(range(0, x.shape[1] - 1), random.randint(0, x.shape[1] - 1))
+            rank = self.node_order(x)
+            for rn in random_numbers:
+                try:
+                    rank[rn] = 1
+                except:
+                    continue
+            rank = torch.tensor(rank)
+            rank = rank.to(self.device)
+            x = x * torch.exp(-(self.epoch / rank))
+
+        x = F.relu(x)
+        x = self.dropout2(x)
+        x = self.fc2(x)
 
         if self.type == 'unlearning':
             # With ordered numbers
