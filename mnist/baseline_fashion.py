@@ -12,9 +12,10 @@ import torch
 import pandas as pd
 from art.attacks.evasion import FastGradientMethod
 from art.estimators.classification import PyTorchClassifier
-from art.utils import load_mnist
+# from art.utils import load_mnist
 from plots import create_plot
 import random
+from art.utils import load_mnist
 from sklearn.model_selection import train_test_split
 
 # Step 0: Define the neural network model, return logits instead of activation in forward method
@@ -49,18 +50,14 @@ class Net(nn.Module):
         if self.type == 'unlearning':
             prev_drp = 0
             try:
-                self.dropout1 = nn.Dropout(0.75 - (0.072 * self.turn) + (0.05 * (self.epoch - 1)))
-                self.dropout2 = nn.Dropout(0.80 - (0.072 * self.turn) + (0.05 * (self.epoch - 1)))
+                self.dropout1 = nn.Dropout(0.65 - (0.02 * (self.turn-1)) + (0.05 * (self.epoch - 1)))
+                self.dropout2 = nn.Dropout(0.75 - (0.02 * (self.turn-1)) + (0.05 * (self.epoch - 1)))
             except:
-                self.dropout1 = nn.Dropout(0.75 - (0.072 ) + (0.05 ))
-                self.dropout2 = nn.Dropout(0.80 - (0.072 ) + (0.05))
+                self.dropout1 = nn.Dropout(0.65)
+                self.dropout2 = nn.Dropout(0.75)
         elif self.type == 'learning':
-            try:
-                self.dropout1 = nn.Dropout(0.65 - (0.09 * self.turn))
-                self.dropout2 = nn.Dropout(0.75 - (0.09 * self.turn))
-            except:
-                self.dropout1 = nn.Dropout(0.65 - (0.09 ))
-                self.dropout2 = nn.Dropout(0.75 - (0.09))
+            self.dropout1 = nn.Dropout(0.25)
+            self.dropout2 = nn.Dropout(0.50)
 
         x = self.conv1(x)
         x = F.relu(x)
@@ -72,9 +69,9 @@ class Net(nn.Module):
         x = self.fc1(x)
 
         # if self.type == 'unlearning':
-        #     # With ordered numbers
-        #     rank = torch.tensor([30 for i in range(x.shape[1])])
-        #     rank = rank.to(self.device)
+            # With ordered numbers
+            # rank = torch.tensor([i for i in range(x.shape[1])])
+            # rank = rank.to(self.device)
 
             # With ordered nodes
             # rank = self.node_order(x)
@@ -91,28 +88,30 @@ class Net(nn.Module):
             # random_numbers = random.sample(range(0, x.shape[1] - 1), random.randint(0, x.shape[1] - 1))
             # rank = self.node_order(x)
             # for rn in random_numbers:
+            #     self.dropout2 = nn.Dropout(rn / 1000)
             #     try:
             #         rank[rn] = 1
-            #
             #     except:
             #         continue
             # rank = torch.tensor(rank)
             # rank = rank.to(self.device)
             # x = x * torch.exp(-(self.epoch / rank))
-        self.dropout2 = nn.Dropout(random.uniform(0, 1))
+
+
+
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)
 
         if self.type == 'unlearning':
             # With ordered numbers
-            rank = torch.tensor([30 for i in range(x.shape[1])])
-            rank = rank.to(self.device)
+            # rank = torch.tensor([i for i in range(x.shape[1])])
+            # rank = rank.to(self.device)
 
             # With ordered nodes
-            # rank = self.node_order(x)
-            # rank = torch.tensor(rank)
-            # rank = rank.to(self.device)
+            rank = self.node_order(x)
+            rank = torch.tensor(rank)
+            rank = rank.to(self.device)
 
             # With to 30 nodes
             # rank = self.node_order(x)
@@ -125,8 +124,7 @@ class Net(nn.Module):
             # rank = self.node_order(x)
             # for rn in random_numbers:
             #     try:
-            #         rank[rn] = rn*random()
-            #
+            #         rank[rn] = 1000
             #     except:
             #         continue
             # rank = torch.tensor(rank)
@@ -140,20 +138,11 @@ class Net(nn.Module):
 # Step 1: Load the MNIST dataset
 
 (x_train, y_train), (x_test, y_test), min_pixel_value, max_pixel_value = load_mnist()
-# x_train = np.expand_dims(x_train, axis=1)
-# x_test = np.expand_dims(x_test, axis=1)
-#
-#
-# # Step 1a: Swap axes to PyTorch's NCHW format
-#
 x_train = np.transpose(x_train, (0, 3, 1, 2)).astype(np.float32)
 x_test = np.transpose(x_test, (0, 3, 1, 2)).astype(np.float32)
 
-# x_train = np.transpose(x_train, (0, 2, 1)).astype(np.float32)
-# x_test = np.transpose(x_test, (0, 2, 1)).astype(np.float32)
 
 # Step 2: Create the model
-
 model = Net()
 
 # Step 2a: Define the loss function and the optimizer
@@ -165,7 +154,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.01)
 # Step 3: Create the ART classifier
 
 
-def train(model, x_train, y_train, epoch, type, turn, device):
+def train(model, x_train, y_train, epoch, type, device):
     classifier = PyTorchClassifier(
         model=model,
         clip_values=(min_pixel_value, max_pixel_value),
@@ -178,59 +167,60 @@ def train(model, x_train, y_train, epoch, type, turn, device):
     model.train()
     model.type = type
     model.epoch = epoch
-    model.turn = turn
     model.device = device
+    optimizer.zero_grad()
+    optimizer.step()
     classifier.fit(x_train, y_train, batch_size=64, nb_epochs=epoch)
     return classifier
+
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 accuracy_list = []
 mia_score_list = []
-for turn in range(1, 6):
-    print(f'------------------------Turn = {turn}-----------------------------')
-    print(f'------------------------Learning-----------------------------')
-    # Step 4: Train the ART classifier
-    for epoch in range(1, 3):
-        classifier = train(model, x_train, y_train, epoch, 'learning', turn, device)
-        # Step 5: Evaluate the ART classifier on benign test examples
-        predictions = classifier.predict(x_test)
-        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-        print("Accuracy on benign test examples: {:0.2f}%".format(accuracy * 100))
-        accuracy_list.append(accuracy)
 
-        # Step 6: Generate adversarial test examples
-        attack = FastGradientMethod(estimator=classifier, eps=0.2)
-        x_test_adv = attack.generate(x=x_test)
+print(f'------------------------Learning-----------------------------')
+# Step 4: Train the ART classifier
+for epoch in range(1, 31):
+    classifier = train(model, x_train, y_train, epoch, 'learning', device)
+    # Step 5: Evaluate the ART classifier on benign test examples
+    predictions = classifier.predict(x_test)
+    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+    print("Accuracy on benign test examples: {:0.2f}%".format(accuracy * 100))
+    accuracy_list.append(accuracy)
 
-        # Step 7: Evaluate the ART classifier on adversarial test examples
-        predictions = classifier.predict(x_test_adv)
-        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-        mia_score_list.append(accuracy)
-        print("Accuracy on adversarial test examples: {:0.2f}%".format(accuracy * 100))
+    # Step 6: Generate adversarial test examples
+    attack = FastGradientMethod(estimator=classifier, eps=0.2)
+    x_test_adv = attack.generate(x=x_test)
 
-    print(f'------------------------Unlearning-----------------------------')
-    for epoch in range(1, 5):
-        X_retain, X_forget, y_retain, y_forget = train_test_split(x_train, y_train, random_state=104, test_size=0.25,
-                                                                  shuffle=True)
-        classifier = train(model, x_train, y_train, epoch, 'unlearning', turn, device)
-        # Step 5: Evaluate the ART classifier on benign test examples
-        predictions = classifier.predict(x_test)
-        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
-        print("Accuracy on benign test examples: {:0.2f}%".format(accuracy * 100))
-        accuracy_list.append(accuracy)
+    # Step 7: Evaluate the ART classifier on adversarial test examples
+    predictions = classifier.predict(x_test_adv)
+    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+    mia_score_list.append(accuracy)
+    print("Accuracy on adversarial test examples: {:0.2f}%".format(accuracy * 100))
 
-        # Step 6: Generate adversarial test examples
-        attack = FastGradientMethod(estimator=classifier, eps=0.2)
-        x_test_adv = attack.generate(x=X_forget)
+print(f'------------------------Unlearning-----------------------------')
+for epoch in range(1, 31):
+    X_retain, X_forget, y_retain, y_forget = train_test_split(x_train, y_train, random_state=104, test_size=0.25, shuffle=True)
 
-        # Step 7: Evaluate the ART classifier on adversarial test examples
-        predictions = classifier.predict(x_test_adv)
-        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_forget, axis=1)) / len(y_forget)
-        mia_score_list.append(accuracy)
-        print("Accuracy on adversarial test examples: {:0.2f}%".format(accuracy * 100))
+    classifier = train(model, X_retain, y_retain, epoch, 'learning', device)
+    # Step 5: Evaluate the ART classifier on benign test examples
+    predictions = classifier.predict(X_forget)
+    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_forget, axis=1)) / len(y_forget)
+    print("Accuracy on benign test examples: {:0.2f}%".format(accuracy * 100))
+    accuracy_list.append(accuracy)
+
+    # Step 6: Generate adversarial test examples
+    attack = FastGradientMethod(estimator=classifier, eps=0.2)
+    x_test_adv = attack.generate(x=X_forget)
+
+    # Step 7: Evaluate the ART classifier on adversarial test examples
+    predictions = classifier.predict(x_test_adv)
+    accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_forget, axis=1)) / len(y_forget)
+    mia_score_list.append(accuracy)
+    print("Accuracy on adversarial test examples: {:0.2f}%".format(accuracy * 100))
 
 df_accuracy = pd.DataFrame(accuracy_list)
 mia_score_df = pd.DataFrame(mia_score_list)
-df_accuracy.to_csv('result_new/fashion/fixed_rank_one_layer/ordered_number_accuracy.csv', index=False)
-mia_score_df.to_csv('result_new/fashion/fixed_rank_one_layer/ordered_number_mia.csv', index=False)
+df_accuracy.to_csv('result/fashion/Baseline_accuracy.csv', index=False)
+mia_score_df.to_csv('result/fashion/Baseline_mia.csv', index=False)

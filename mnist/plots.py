@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
 
-def create_polt(df_acc, df_mia, process_name):
+def create_plot(df_acc, df_mia, process_name):
     # df_f1 = pd.read_csv('Result_rank_random_variable_epoch_all_layer.csv')
     # df_mia = pd.read_csv('MIA_Rank_ordered_number_all_epoch_all_layer.csv')
     df_mia[0] = df_mia[0].round(3)
@@ -26,4 +26,4 @@ def create_polt(df_acc, df_mia, process_name):
 
     blue_circle = mlines.Line2D([], [], color='black', marker='o', linestyle='None', markersize=3, label='MIA Score')
     plt.legend(handles=[blue_circle], loc='lower right')
-    plt.savefig(f'mnist/plots/{process_name}.png')
+    plt.savefig(f'mnist/result/{process_name}.png')

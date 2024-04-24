@@ -16,6 +16,8 @@ from art.estimators.classification import PyTorchClassifier
 from plots import create_plot
 import random
 from load_data import load_mnist_digit
+from sklearn.model_selection import train_test_split
+
 # Step 0: Define the neural network model, return logits instead of activation in forward method
 
 
@@ -72,20 +74,21 @@ class Net(nn.Module):
             # rank = rank.to(self.device)
 
             # With ordered nodes
-            # rank = self.node_order(x)
-            # rank = torch.tensor(rank)
-            # rank = rank.to(self.device)
-
-            # With to 30 nodes
             rank = self.node_order(x)
-            rank = [ind if 30 <= ind else 0 for ind in rank]
             rank = torch.tensor(rank)
             rank = rank.to(self.device)
+
+            # With to 30 nodes
+            # rank = self.node_order(x)
+            # rank = [ind if 30 <= ind else 0 for ind in rank]
+            # rank = torch.tensor(rank)
+            # rank = rank.to(self.device)
 
             # Random node
             # random_numbers = random.sample(range(0, x.shape[1] - 1), random.randint(0, x.shape[1] - 1))
             # rank = self.node_order(x)
             # for rn in random_numbers:
+            #     self.dropout2 = nn.Dropout(rn / 1000)
             #     try:
             #         rank[rn] = 1
             #     except:
@@ -93,6 +96,8 @@ class Net(nn.Module):
             # rank = torch.tensor(rank)
             # rank = rank.to(self.device)
             x = x * torch.exp(-(self.epoch / rank))
+
+
 
         x = F.relu(x)
         x = self.dropout2(x)
@@ -104,22 +109,22 @@ class Net(nn.Module):
             # rank = rank.to(self.device)
 
             # With ordered nodes
-            # rank = self.node_order(x)
-            # rank = torch.tensor(rank)
-            # rank = rank.to(self.device)
-
-            # With to 30 nodes
             rank = self.node_order(x)
-            rank = [ind if 30 <= ind else 0 for ind in rank]
             rank = torch.tensor(rank)
             rank = rank.to(self.device)
+
+            # With to 30 nodes
+            # rank = self.node_order(x)
+            # rank = [ind if 30 <= ind else 0 for ind in rank]
+            # rank = torch.tensor(rank)
+            # rank = rank.to(self.device)
 
             # Random node
             # random_numbers = random.sample(range(0, x.shape[1] - 1), random.randint(0, x.shape[1] - 1))
             # rank = self.node_order(x)
             # for rn in random_numbers:
             #     try:
-            #         rank[rn] = 1
+            #         rank[rn] = 1000
             #     except:
             #         continue
             # rank = torch.tensor(rank)
@@ -178,7 +183,7 @@ for turn in range(1, 6):
     print(f'------------------------Learning-----------------------------')
     # Step 4: Train the ART classifier
     for epoch in range(1, 3):
-        classifier = train(model, x_train, y_train, 5, 'learning', turn, device)
+        classifier = train(model, x_train, y_train, epoch, 'learning', turn, device)
         # Step 5: Evaluate the ART classifier on benign test examples
         predictions = classifier.predict(x_test)
         accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
@@ -197,7 +202,10 @@ for turn in range(1, 6):
 
     print(f'------------------------Unlearning-----------------------------')
     for epoch in range(1, 5):
-        classifier = train(model, x_train, y_train, 5, 'unlearning', turn, device)
+        X_retain, X_forget, y_retain, y_forget = train_test_split(x_train, y_train, random_state=104, test_size=0.25,
+                                                                  shuffle=True)
+
+        classifier = train(model, x_train, y_train, epoch, 'unlearning', turn, device)
         # Step 5: Evaluate the ART classifier on benign test examples
         predictions = classifier.predict(x_test)
         accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
@@ -206,16 +214,15 @@ for turn in range(1, 6):
 
         # Step 6: Generate adversarial test examples
         attack = FastGradientMethod(estimator=classifier, eps=0.2)
-        x_test_adv = attack.generate(x=x_test)
+        x_test_adv = attack.generate(x=X_forget)
 
         # Step 7: Evaluate the ART classifier on adversarial test examples
         predictions = classifier.predict(x_test_adv)
-        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_test, axis=1)) / len(y_test)
+        accuracy = np.sum(np.argmax(predictions, axis=1) == np.argmax(y_forget, axis=1)) / len(y_forget)
         mia_score_list.append(accuracy)
         print("Accuracy on adversarial test examples: {:0.2f}%".format(accuracy * 100))
 
 df_accuracy = pd.DataFrame(accuracy_list)
 mia_score_df = pd.DataFrame(mia_score_list)
-df_accuracy.to_csv('result/digit/fixed_epoch_two_layers/top_30_accuracy.csv', index=False)
-mia_score_df.to_csv('result/digit/fixed_epoch_two_layers/top_30_mia.csv', index=False)
-#create_plot(df_accuracy, mia_score_df, 'tes_mia')
+df_accuracy.to_csv('result_new/digit/variable_epoch_two_layers/ordered_node_accuracy.csv', index=False)
+mia_score_df.to_csv('result_new/digit/variable_epoch_two_layers/ordered_node_mia.csv', index=False)
